@@ -9,7 +9,9 @@ import os
 app = Flask(__name__)
 # In production, use a secure random key
 app.config['SECRET_KEY'] = 'dev-secret-key-12345'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///db.sqlite'
+
+db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'database.db')
+app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
