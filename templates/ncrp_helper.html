@@ -1,0 +1,290 @@
+{% extends "base.html" %}
+{% block title %}NCRP Form Helper — CyberShield Portal{% endblock %}
+{% block description %}CyberShield: Step-by-step helper to fill the NCRP cybercrime complaint form. Copy each field directly to cybercrime.gov.in.{% endblock %}
+
+{% block head %}
+<style>
+  /* NCRP Helper specific styles — dark theme */
+  .ncrp-banner {
+    background: var(--bg-card);
+    backdrop-filter: blur(12px);
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    padding: 1.5rem 2rem;
+    text-align: center;
+    margin-bottom: 1.5rem;
+    box-shadow: var(--card-shadow);
+  }
+  .ncrp-banner h1 { font-size: 1.5rem; margin-bottom: 0.4rem; }
+  .ncrp-banner p  { color: var(--text-muted); font-size: 0.9rem; max-width: 560px; margin: 0 auto; line-height: 1.6; }
+
+  .instruction {
+    background: rgba(139,92,246,0.06);
+    border-left: 3px solid var(--primary);
+    border-radius: 0 10px 10px 0;
+    padding: 13px 18px;
+    font-size: 0.83rem;
+    color: var(--text-muted);
+    line-height: 1.7;
+    margin-bottom: 1.5rem;
+  }
+  .instruction a { color: var(--primary); text-decoration: underline; }
+  .instruction b { color: var(--text-main); }
+
+  .field-card {
+    background: var(--bg-card);
+    backdrop-filter: blur(10px);
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--border);
+    margin-bottom: 12px;
+    overflow: hidden;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    box-shadow: var(--card-shadow);
+  }
+  .field-card.copied { border-left-color: var(--success); box-shadow: 0 0 15px rgba(16,185,129,0.1); }
+
+  .fc-head {
+    padding: 9px 16px;
+    background: rgba(0,0,0,0.2);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .fc-label { font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .fc-ncrp  { font-size: 0.72rem; color: rgba(148,163,184,0.6); }
+
+  .fc-body {
+    padding: 12px 16px;
+    display: flex; align-items: flex-start; gap: 12px;
+  }
+  .fc-value {
+    flex: 1; font-size: 0.9rem; color: var(--text-main); font-weight: 500;
+    line-height: 1.55; word-break: break-word;
+  }
+  .fc-value.mono { font-family: 'Courier New', monospace; font-size: 0.86rem; color: #a78bfa; }
+
+  .copy-btn {
+    flex-shrink: 0; padding: 7px 14px;
+    background: rgba(139,92,246,0.15);
+    border: 1px solid rgba(139,92,246,0.3);
+    color: #a78bfa;
+    border-radius: 8px;
+    font-family: 'Outfit', sans-serif; font-size: 0.8rem; font-weight: 600;
+    cursor: pointer; transition: all 0.2s;
+    display: flex; align-items: center; gap: 6px; white-space: nowrap;
+  }
+  .copy-btn:hover   { background: rgba(139,92,246,0.25); border-color: rgba(139,92,246,0.5); }
+  .copy-btn.success { background: rgba(16,185,129,0.2); border-color: rgba(16,185,129,0.4); color: #6ee7b7; }
+
+  .copy-all-btn {
+    display: block; width: 100%; margin-bottom: 1.5rem;
+    padding: 12px; background: var(--gradient-hero); color: #fff;
+    border: none; border-radius: 12px; font-family: 'Outfit', sans-serif;
+    font-size: 0.95rem; font-weight: 700; cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 16px rgba(139,92,246,0.3);
+  }
+  .copy-all-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(139,92,246,0.4); }
+
+  .portal-btn {
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    background: rgba(255,255,255,0.05); color: var(--text-main); text-decoration: none;
+    padding: 13px 24px; border-radius: 12px; font-size: 0.92rem; font-weight: 700;
+    border: 1px solid var(--border); margin-bottom: 1.2rem;
+    transition: all 0.3s;
+  }
+  .portal-btn:hover { background: rgba(255,255,255,0.1); border-color: var(--primary); }
+
+  .helper-note {
+    background: rgba(245,158,11,0.08);
+    border: 1px solid rgba(245,158,11,0.25);
+    border-radius: 10px;
+    padding: 12px 16px; font-size: 0.83rem; color: #fcd34d; line-height: 1.6;
+    margin-top: 1rem;
+  }
+
+  .section-title {
+    font-size: 0.75rem; font-weight: 700; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.6px;
+    margin: 1.5rem 0 0.8rem;
+    display: flex; align-items: center; gap: 8px;
+  }
+
+  .msg-preview-box {
+    background: rgba(0,0,0,0.3);
+    border-radius: 8px;
+    padding: 12px;
+    border: 1px solid var(--border);
+    line-height: 1.7;
+    font-size: 0.88rem;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+{% set pr = data.prediction_result %}
+{% set en = data.entities %}
+{% set ft = data.fraud_type %}
+{% set ts = data.timestamp %}
+
+<div class="container" style="padding-top:2rem;padding-bottom:3rem;">
+
+  <!-- Header banner -->
+  <div class="ncrp-banner">
+    <h1>📋 NCRP Online Complaint Form Helper</h1>
+    <p>
+      Complaint Ref: <b style="color:var(--primary);">{{ data.complaint_id }}</b> &nbsp;·&nbsp; {{ ts }}<br>
+      cybercrime.gov.in requires manual form filling. Click <b>Copy</b> next to each field, then paste into the NCRP portal.
+    </p>
+  </div>
+
+  <div class="instruction">
+    <b>How to use:</b><br>
+    1. Open <a href="https://cybercrime.gov.in" target="_blank">cybercrime.gov.in</a> in another tab and start a new complaint.<br>
+    2. Come back here and click <b>Copy</b> next to each field.<br>
+    3. Paste into the corresponding field on the portal.<br>
+    4. Or use <b>Copy All as Text</b> to get everything at once.
+  </div>
+
+  <a class="portal-btn" href="https://cybercrime.gov.in" target="_blank" rel="noopener">
+    🌐 Open cybercrime.gov.in →
+  </a>
+
+  <button class="copy-all-btn" onclick="copyAll()">📋 Copy All Fields as Text</button>
+
+  <!-- Complainant Details -->
+  <div class="section-title">👤 Complainant Details</div>
+
+  <div class="field-card">
+    <div class="fc-head"><span class="fc-label">Full Name</span><span class="fc-ncrp">NCRP: Complainant Name</span></div>
+    <div class="fc-body">
+      <div class="fc-value">{{ data.complainant_name or 'Not provided' }}</div>
+      <button class="copy-btn" onclick="copyField(this, {{ (data.complainant_name or '') | tojson }})">📋 Copy</button>
+    </div>
+  </div>
+
+  <div class="field-card">
+    <div class="fc-head"><span class="fc-label">Contact / Mobile Number</span><span class="fc-ncrp">NCRP: Mobile No.</span></div>
+    <div class="fc-body">
+      <div class="fc-value">{{ data.complainant_contact or 'Not provided' }}</div>
+      <button class="copy-btn" onclick="copyField(this, {{ (data.complainant_contact or '') | tojson }})">📋 Copy</button>
+    </div>
+  </div>
+
+  <!-- Incident Details -->
+  <div class="section-title">🗓️ Incident Details</div>
+
+  <div class="field-card">
+    <div class="fc-head"><span class="fc-label">Date of Incident</span><span class="fc-ncrp">NCRP: Date of Incident</span></div>
+    <div class="fc-body">
+      <div class="fc-value">{{ ts.split(' ')[0] if ts else '' }}</div>
+      <button class="copy-btn" onclick="copyField(this, {{ (ts.split(' ')[0] if ts else '') | tojson }})">📋 Copy</button>
+    </div>
+  </div>
+
+  <div class="field-card">
+    <div class="fc-head"><span class="fc-label">Type of Fraud</span><span class="fc-ncrp">NCRP: Category of Complaint</span></div>
+    <div class="fc-body">
+      <div class="fc-value">{{ ft.category if ft else 'Unknown Fraud' }}</div>
+      <button class="copy-btn" onclick="copyField(this, {{ (ft.category if ft else 'Unknown Fraud') | tojson }})">📋 Copy</button>
+    </div>
+  </div>
+
+  <div class="field-card">
+    <div class="fc-head"><span class="fc-label">Sender / Accused Number</span><span class="fc-ncrp">NCRP: Accused Mobile No.</span></div>
+    <div class="fc-body">
+      <div class="fc-value">
+        {% if en.sender %}{{ en.sender }}
+        {% elif en.phones %}{{ en.phones | join(', ') }}
+        {% else %}Unknown{% endif %}
+      </div>
+      <button class="copy-btn" onclick="copyField(this, {{ (en.sender or (en.phones | join(', ') if en.phones else 'Unknown')) | tojson }})">📋 Copy</button>
+    </div>
+  </div>
+
+  <!-- Digital Evidence -->
+  <div class="section-title">🔍 Digital Evidence</div>
+
+  <div class="field-card">
+    <div class="fc-head"><span class="fc-label">Suspicious URLs Found</span><span class="fc-ncrp">NCRP: Website URL / Link</span></div>
+    <div class="fc-body">
+      <div class="fc-value mono">{{ en.urls | join(', ') if en.urls else 'None' }}</div>
+      <button class="copy-btn" onclick="copyField(this, {{ (en.urls | join(', ') if en.urls else 'None') | tojson }})">📋 Copy</button>
+    </div>
+  </div>
+
+  <div class="field-card">
+    <div class="fc-head"><span class="fc-label">Amount Involved</span><span class="fc-ncrp">NCRP: Amount Involved</span></div>
+    <div class="fc-body">
+      <div class="fc-value">{{ en.amounts | join(', ') if en.amounts else 'Not specified' }}</div>
+      <button class="copy-btn" onclick="copyField(this, {{ (en.amounts | join(', ') if en.amounts else 'Not specified') | tojson }})">📋 Copy</button>
+    </div>
+  </div>
+
+  <!-- Full Message -->
+  <div class="section-title">📩 Fraudulent Message</div>
+
+  <div class="field-card">
+    <div class="fc-head"><span class="fc-label">Full Message Text (verbatim)</span><span class="fc-ncrp">NCRP: Brief Description / Narrative</span></div>
+    <div class="fc-body" style="align-items:flex-start;">
+      <div class="fc-value msg-preview-box">{{ data.message }}</div>
+      <button class="copy-btn" onclick="copyField(this, {{ data.message | tojson }})" style="margin-top:4px;">📋 Copy</button>
+    </div>
+  </div>
+
+  <!-- ML Evidence -->
+  <div class="section-title">🤖 ML Analysis Summary</div>
+
+  <div class="field-card">
+    <div class="fc-head"><span class="fc-label">ML Evidence (for remarks field)</span><span class="fc-ncrp">NCRP: Additional Remarks</span></div>
+    <div class="fc-body" style="align-items:flex-start;">
+      {% set ml_summary %}Fraud detected by ML model. Risk Level: {{ pr.risk_level }}. Fraud Probability: {{ (pr.fraud_probability * 100) | round(1) }}%. Fraud Category: {{ ft.category if ft else 'Unknown' }} (NCRP {{ ft.ncrp_code if ft else 'CAT-08' }}). Extracted evidence — Phones: {{ en.phones | join(', ') or 'None' }}; URLs: {{ en.urls | join(', ') or 'None' }}; Amounts: {{ en.amounts | join(', ') or 'None' }}; OTPs: {{ en.otps | join(', ') or 'None' }}. Model: Ensemble (LinearSVC+LR+NB), Accuracy 94.92%, ROC-AUC 98.94%.{% endset %}
+      <div class="fc-value" style="font-size:0.82rem;line-height:1.6;">{{ ml_summary }}</div>
+      <button class="copy-btn" onclick="copyField(this, {{ ml_summary | tojson }})">📋 Copy</button>
+    </div>
+  </div>
+
+  <div class="helper-note">
+    ⚠️ <b>Note:</b> cybercrime.gov.in requires you to manually fill and submit the form.
+    This helper only assists with copy-pasting data. After submitting, note your complaint reference
+    number and attach the downloaded PDF as supporting evidence.
+  </div>
+
+</div>
+
+<script>
+function copyField(btn, text) {
+  if (!text || text === 'undefined') return;
+  navigator.clipboard.writeText(text).then(() => {
+    const orig = btn.innerHTML;
+    btn.innerHTML = '✅ Copied!';
+    btn.classList.add('success');
+    const card = btn.closest('.field-card');
+    if (card) card.classList.add('copied');
+    setTimeout(() => { btn.innerHTML = orig; btn.classList.remove('success'); }, 2000);
+  }).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy');
+    document.body.removeChild(ta);
+    btn.innerHTML = '✅ Copied!';
+    btn.classList.add('success');
+    setTimeout(() => { btn.innerHTML = '📋 Copy'; btn.classList.remove('success'); }, 2000);
+  });
+}
+
+function copyAll() {
+  const lines = Array.from(document.querySelectorAll('.field-card')).map(card => {
+    const label = card.querySelector('.fc-label')?.textContent || '';
+    const val   = card.querySelector('.fc-value')?.textContent?.trim() || '';
+    return `${label}: ${val}`;
+  });
+  const full = lines.join('\n');
+  navigator.clipboard.writeText(full).then(() => {
+    const btn = event.target;
+    btn.textContent = '✅ All Copied!';
+    setTimeout(() => { btn.textContent = '📋 Copy All Fields as Text'; }, 2500);
+  });
+}
+</script>
+{% endblock %}

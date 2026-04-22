@@ -1,0 +1,272 @@
+{% extends "base.html" %}
+{% block title %}Analysis Result — CyberShield Portal{% endblock %}
+{% block description %}CyberShield fraud analysis result with Word Risk Heatmap, Velocity Tracker, and digital evidence extraction.{% endblock %}
+
+{% block content %}
+{% set icons = {"FRAUD":"🚨","SUSPICIOUS":"⚠️","UNCERTAIN":"🔎","LEGIT":"✅"} %}
+{% set descs = {
+  "FRAUD":      "High confidence — strong fraud indicators detected.",
+  "SUSPICIOUS": "Moderate risk — notable fraud patterns found. Exercise caution.",
+  "UNCERTAIN":  "Could not classify confidently. Flagged for admin review.",
+  "LEGIT":      "No significant fraud indicators found in this message."
+} %}
+
+<div class="container" style="padding-top:2rem;padding-bottom:3rem;">
+
+  <!-- ── RISK HERO BANNER ── -->
+  <div class="risk-hero rh-{{ result.risk_level }}">
+    <div class="rh-icon">{{ icons[result.risk_level] }}</div>
+    <div class="rh-text">
+      <h2>{{ result.risk_level }}</h2>
+      <p>{{ descs[result.risk_level] }}</p>
+      <span class="ref-pill">Ref: {{ complaint_id }} &nbsp;·&nbsp; {{ timestamp }}</span>
+    </div>
+    <div class="rh-meter">
+      <div class="pct">{{ "%.1f"|format(result.fraud_probability * 100) }}%</div>
+      <div class="lbl">Fraud Probability</div>
+    </div>
+  </div>
+
+  <div class="result-grid">
+
+    {# ══════════════════════════════════════════ #}
+    {# VELOCITY TRACKER                          #}
+    {# ══════════════════════════════════════════ #}
+    {% if velocity_alerts %}
+    <div class="r-card">
+      <div class="r-card-head">
+        <span><i class="fa-solid fa-rotate"></i>&nbsp; Repeat Offender Intelligence — Velocity Tracker</span>
+        <span class="badge-pill">{{ velocity_alerts | length }} indicator(s) flagged</span>
+      </div>
+      <div class="r-card-body">
+        {% set top = velocity_alerts[0] %}
+        <div class="velocity-banner vb-{{ top.threat_level }}">
+          {% if top.threat_level == "CRITICAL" %}
+            <div class="vb-body">
+              <h4 style="color:#fca5a5;">CRITICAL — Known Fraud Infrastructure</h4>
+              <p>This phone number or URL has been reported <b>{{ top.count }} times</b> across multiple complaints. This is a confirmed repeat offender in our threat database.</p>
+            </div>
+          {% elif top.threat_level == "HIGH" %}
+            <div class="vb-body">
+              <h4 style="color:#fcd34d;">HIGH — Repeat Offender Detected</h4>
+              <p>This indicator has appeared in <b>{{ top.count }} previous complaints</b>. Strong evidence of systematic fraud operation.</p>
+            </div>
+          {% elif top.threat_level == "MEDIUM" %}
+            <div class="vb-body">
+              <h4 style="color:#6ee7b7;">MEDIUM — Seen Before</h4>
+              <p>This indicator was reported in <b>{{ top.count }} earlier complaint(s)</b>. Exercise caution.</p>
+            </div>
+          {% else %}
+            <div class="vb-body">
+              <h4 style="color:#93c5fd;">First Report Recorded</h4>
+              <p>This indicator has been added to the threat database for future cross-complaint matching.</p>
+            </div>
+          {% endif %}
+        </div>
+
+        <table class="velocity-table">
+          <thead>
+            <tr>
+              <th>Type</th>
+              <th>Indicator</th>
+              <th>Reports</th>
+              <th>Threat Level</th>
+              <th>First Seen</th>
+              <th>Last Seen</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for a in velocity_alerts %}
+            <tr>
+              <td style="font-weight:600;font-size:0.8rem;color:var(--text-muted);">{{ a.type }}</td>
+              <td style="font-family:monospace;font-size:0.82rem;word-break:break-all;color:var(--text-main);">{{ a.value }}</td>
+              <td><span class="report-count">{{ a.count }}</span></td>
+              <td><span class="threat-pill tp-{{ a.threat_level }}">{{ a.threat_level }}</span></td>
+              <td style="font-size:0.78rem;color:var(--text-muted);">{{ a.first_seen }}</td>
+              <td style="font-size:0.78rem;color:var(--text-muted);">{{ a.last_seen }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <p style="font-size:0.76rem;color:var(--text-muted);margin-top:10px;">
+          <i class="fa-solid fa-circle-info"></i> Velocity Tracker builds a local threat intelligence database from crowd-sourced reports, similar to how telecom companies build fraud blacklists from TRAI data.
+        </p>
+      </div>
+    </div>
+    {% endif %}
+
+    {# ── FRAUD CLASSIFICATION ── #}
+    {% if fraud_type %}
+    <div class="r-card">
+      <div class="r-card-head">
+        <span><i class="fa-solid fa-tag"></i>&nbsp; Fraud Classification</span>
+      </div>
+      <div class="r-card-body">
+        <div class="ft-row">
+          <span class="ft-name">{{ fraud_type.category }}</span>
+          {% if fraud_type.ncrp_code != "TBD" %}
+            <span class="ncrp-pill">NCRP {{ fraud_type.ncrp_code }}</span>
+          {% else %}
+            <span class="uncertain-pill">⏳ Pending Admin Review</span>
+          {% endif %}
+        </div>
+        {% if result.risk_level == "UNCERTAIN" %}
+        <div class="review-note" style="margin-top:10px;">
+          <i class="fa-solid fa-bell"></i> This message is <b>UNCERTAIN</b> and has been sent to the admin queue for manual review. Once labeled, it will improve future model predictions.
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    {# ══════════════════════════════════════════ #}
+    {# WORD RISK HEATMAP                         #}
+    {# ══════════════════════════════════════════ #}
+    <div class="r-card">
+      <div class="r-card-head">
+        <span><i class="fa-solid fa-temperature-full"></i>&nbsp; Word Risk Heatmap — Token-Level Explainability</span>
+        <span class="badge-pill">Novel Feature</span>
+      </div>
+      <div class="r-card-body">
+        <div class="heatmap-legend">
+          <span style="font-size:0.78rem;font-weight:600;color:var(--text-muted);margin-right:4px;">Risk Level:</span>
+          <span class="hl-item">
+            <span class="hl-swatch" style="background:rgba(239,68,68,0.25);border-bottom:2px solid #ef4444;"></span>High (strong fraud signal)
+          </span>
+          <span class="hl-item">
+            <span class="hl-swatch" style="background:rgba(245,158,11,0.2);border-bottom:2px solid #f59e0b;"></span>Medium
+          </span>
+          <span class="hl-item">
+            <span class="hl-swatch" style="background:rgba(16,185,129,0.15);border-bottom:2px solid #10b981;"></span>Low
+          </span>
+          <span class="hl-item">
+            <span class="hl-swatch" style="background:rgba(148,163,184,0.15);"></span>Safe / Neutral
+          </span>
+        </div>
+
+        <div class="heatmap-text">
+          {% for token in word_heatmap %}
+            {% if token.level != "safe" %}
+              <span class="tok-wrap">
+                <span class="tok tok-{{ token.level }}">{{ token.word }}</span>
+                <span class="tok-tooltip">Score: {{ token.score }} · {{ token.level | upper }}</span>
+              </span>
+            {% else %}
+              <span class="tok tok-safe">{{ token.word }}</span>
+            {% endif %}
+            {{ " " }}
+          {% endfor %}
+        </div>
+
+        <div class="heatmap-note">
+          <i class="fa-solid fa-circle-info"></i>
+          Each word is coloured by its Logistic Regression fraud coefficient weight. Hover over highlighted words to see their exact risk score.
+        </div>
+      </div>
+    </div>
+
+    {# ── CONFIDENCE SCORES ── #}
+    <div class="r-card">
+      <div class="r-card-head">
+        <span><i class="fa-solid fa-chart-bar"></i>&nbsp; Confidence Scores</span>
+      </div>
+      <div class="r-card-body">
+        <div class="bar-wrap">
+          <div class="bar-label">
+            <span>Fraud Probability</span>
+            <span>{{ "%.1f"|format(result.fraud_probability * 100) }}%</span>
+          </div>
+          <div class="bar-outer">
+            <div class="bar-inner bi-fraud" style="width:{{ result.fraud_probability * 100 }}%"></div>
+          </div>
+        </div>
+        <div class="bar-wrap">
+          <div class="bar-label">
+            <span>Legitimate Probability</span>
+            <span>{{ "%.1f"|format(result.legit_probability * 100) }}%</span>
+          </div>
+          <div class="bar-outer">
+            <div class="bar-inner bi-legit" style="width:{{ result.legit_probability * 100 }}%"></div>
+          </div>
+        </div>
+        <p class="model-note">
+          <i class="fa-solid fa-microchip"></i>&nbsp; Ensemble: LinearSVC (60%) + Logistic Regression (20%) + MultinomialNB (20%) &nbsp;·&nbsp; Threshold: {{ result.threshold_used }}
+        </p>
+      </div>
+    </div>
+
+    {# ── EXTRACTED DIGITAL EVIDENCE ── #}
+    <div class="r-card">
+      <div class="r-card-head">
+        <span><i class="fa-solid fa-magnifying-glass"></i>&nbsp; Extracted Digital Evidence</span>
+      </div>
+      <div class="r-card-body">
+        <div class="eg">
+          <div class="ei">
+            <div class="ei-label">Phone Numbers</div>
+            {% if entities.phones %}{% for p in entities.phones %}<span class="ei-tag">{{ p }}</span>{% endfor %}
+            {% else %}<span class="ei-none">None found</span>{% endif %}
+          </div>
+          <div class="ei">
+            <div class="ei-label">URLs</div>
+            {% if entities.urls %}{% for u in entities.urls %}<div style="font-size:0.77rem;word-break:break-all;margin-bottom:3px;color:#a78bfa;font-weight:600;">{{ u }}</div>{% endfor %}
+            {% else %}<span class="ei-none">None found</span>{% endif %}
+          </div>
+          <div class="ei">
+            <div class="ei-label">Amounts</div>
+            {% if entities.amounts %}{% for a in entities.amounts %}<span class="ei-tag">{{ a }}</span>{% endfor %}
+            {% else %}<span class="ei-none">None found</span>{% endif %}
+          </div>
+          <div class="ei">
+            <div class="ei-label">OTP / PIN</div>
+            {% if entities.otps %}{% for o in entities.otps %}<span class="ei-tag">{{ o }}</span>{% endfor %}
+            {% else %}<span class="ei-none">None found</span>{% endif %}
+          </div>
+          {% if entities.sender %}
+          <div class="ei">
+            <div class="ei-label">Sender</div>
+            <span class="ei-tag">{{ entities.sender }}</span>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    {# ── KEYWORDS ── #}
+    {% if entities.keywords %}
+    <div class="r-card">
+      <div class="r-card-head">
+        <span><i class="fa-solid fa-key"></i>&nbsp; Top Fraud Trigger Keywords</span>
+      </div>
+      <div class="r-card-body">
+        <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:10px;">Highest LR coefficient words from this message:</p>
+        {% for kw in entities.keywords %}<span class="kw-pill">{{ kw }}</span>{% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    {# ── ACTIONS ── #}
+    <div class="r-card">
+      <div class="r-card-body">
+        <div class="actions">
+          {% if show_pdf %}
+          <a class="btn-pdf" href="/download-complaint/{{ complaint_id }}" target="_blank">
+            <i class="fa-solid fa-file-pdf"></i> Download NCRP Complaint PDF
+          </a>
+          <a class="btn-ncrp" href="/ncrp-helper/{{ complaint_id }}" target="_blank">
+            <i class="fa-solid fa-clipboard-list"></i> NCRP Form Helper
+          </a>
+          {% endif %}
+          <a class="btn-back" href="/">
+            <i class="fa-solid fa-arrow-left"></i> Analyse Another
+          </a>
+        </div>
+        {% if show_pdf %}
+        <p class="action-note">PDF includes velocity intelligence, word heatmap summary, and all evidence. NCRP Form Helper lets you copy each field directly to cybercrime.gov.in.</p>
+        {% endif %}
+      </div>
+    </div>
+
+  </div>{# end result-grid #}
+</div>
+{% endblock %}

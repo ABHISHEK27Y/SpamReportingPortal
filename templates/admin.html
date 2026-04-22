@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+{% block title %}Admin Panel — CyberShield Portal{% endblock %}
+{% block description %}CyberShield admin panel for Human-in-the-Loop fraud detection. Label uncertain cases and retrain the ML model.{% endblock %}
+
+{% block content %}
+<div class="admin-main">
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in messages %}
+      <div class="flash flash-{{ cat }}">{{ msg }}</div>
+    {% endfor %}
+  {% endwith %}
+
+  <div style="margin-bottom:1.5rem;">
+    <h1 style="font-size:1.6rem;margin-bottom:0.2rem;"><i class="fa-solid fa-gear" style="color:var(--primary);"></i> CyberShield Admin</h1>
+    <p style="color:var(--text-muted);font-size:0.85rem;">Human-in-the-Loop · Velocity Intelligence · Retrain Control · {{ user.email }}</p>
+  </div>
+
+  <!-- ── STATS GRID ── -->
+  {% set total     = pending | length %}
+  {% set labeled   = pending | selectattr('admin_label') | list | length %}
+  {% set unlabeled = total - labeled %}
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-n">{{ total }}</div>
+      <div class="stat-l">Total Uncertain</div>
+    </div>
+    <div class="stat-card high">
+      <div class="stat-n">{{ unlabeled }}</div>
+      <div class="stat-l">Awaiting Review</div>
+    </div>
+    <div class="stat-card labeled">
+      <div class="stat-n">{{ labeled }}</div>
+      <div class="stat-l">Labeled & Saved</div>
+    </div>
+    <div class="stat-card critical">
+      <div class="stat-n">{{ vstats.critical_count }}</div>
+      <div class="stat-l">CRITICAL Indicators</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-n" style="color:#fcd34d;">{{ vstats.total_phones }}</div>
+      <div class="stat-l">Tracked Phones</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-n">{{ vstats.total_urls }}</div>
+      <div class="stat-l">Tracked URLs</div>
+    </div>
+  </div>
+
+
+  <!-- ── VELOCITY INTELLIGENCE ── -->
+  {% if vstats.top_phones or vstats.top_urls %}
+  <div class="admin-card">
+    <div class="admin-card-head">
+      <span><i class="fa-solid fa-rotate"></i>&nbsp; Velocity Tracker — Threat Intelligence Database</span>
+      <span style="font-size:0.78rem;font-weight:400;color:var(--text-muted);">{{ vstats.total_phones }} phones · {{ vstats.total_urls }} URLs tracked</span>
+    </div>
+    <div class="vel-grid">
+      <div class="vel-col">
+        <h4>📞 Top Reported Phone Numbers</h4>
+        {% if vstats.top_phones %}
+          {% for phone, entry in vstats.top_phones %}
+          <div class="vel-row">
+            <div>
+              <div class="vel-val">{{ phone }}</div>
+              <div style="font-size:0.7rem;color:var(--text-muted);margin-top:2px;">Last: {{ entry.last_seen[:10] }}</div>
+            </div>
+            <div style="text-align:right;">
+              <div class="vel-count">{{ entry.count }}×</div>
+              {% if entry.count >= 4 %}<span class="threat-pill tp-CRITICAL">CRITICAL</span>
+              {% elif entry.count >= 3 %}<span class="threat-pill tp-HIGH">HIGH</span>
+              {% elif entry.count >= 2 %}<span class="threat-pill tp-MEDIUM">MEDIUM</span>{% endif %}
+            </div>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div style="color:var(--text-muted);font-size:0.82rem;padding:10px 0;">No phone data yet.</div>
+        {% endif %}
+      </div>
+      <div class="vel-col">
+        <h4>🔗 Top Reported URLs</h4>
+        {% if vstats.top_urls %}
+          {% for url, entry in vstats.top_urls %}
+          <div class="vel-row">
+            <div>
+              <div class="vel-val" title="{{ url }}">{{ url[:40] }}{% if url|length > 40 %}…{% endif %}</div>
+              <div style="font-size:0.7rem;color:var(--text-muted);margin-top:2px;">Last: {{ entry.last_seen[:10] }}</div>
+            </div>
+            <div style="text-align:right;">
+              <div class="vel-count">{{ entry.count }}×</div>
+              {% if entry.count >= 4 %}<span class="threat-pill tp-CRITICAL">CRITICAL</span>
+              {% elif entry.count >= 3 %}<span class="threat-pill tp-HIGH">HIGH</span>
+              {% elif entry.count >= 2 %}<span class="threat-pill tp-MEDIUM">MEDIUM</span>{% endif %}
+            </div>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div style="color:var(--text-muted);font-size:0.82rem;padding:10px 0;">No URL data yet.</div>
+        {% endif %}
+      </div>
+    </div>
+    <p style="font-size:0.74rem;color:var(--text-muted);padding:0 1.5rem 1rem;">
+      Full database: <a href="/admin/velocity-db" target="_blank" style="color:var(--primary);">GET /admin/velocity-db</a>
+    </p>
+  </div>
+  {% endif %}
+
+  <!-- ── RETRAIN ── -->
+  <div class="retrain-card">
+    <div class="retrain-header">
+      <div>
+        <div class="retrain-title"><i class="fa-solid fa-arrows-rotate" style="color:var(--primary);"></i> Retrain Model</div>
+        <div class="retrain-sub">Runs pipefinal.py with all labeled samples. ~2–5 minutes.</div>
+      </div>
+      <form method="POST" action="/admin/retrain"
+            onsubmit="document.getElementById('rbtn').textContent='🔄 Starting…'">
+        <button class="btn-retrain" id="rbtn" type="submit">
+          <i class="fa-solid fa-rocket"></i> Retrain Now
+        </button>
+      </form>
+    </div>
+    <button class="btn-log" onclick="toggleLog()">📜 Show Retrain Log</button>
+    <div class="log-box" id="logBox">Fetching…</div>
+  </div>
+
+  <!-- ── PENDING REVIEW ── -->
+  <div class="admin-card">
+    <div class="admin-card-head">
+      <span><i class="fa-solid fa-magnifying-glass"></i>&nbsp; Uncertain Cases — Awaiting Label</span>
+      <span style="font-size:0.78rem;font-weight:400;color:var(--text-muted);">{{ unlabeled }} pending</span>
+    </div>
+    {% if pending %}
+    <div style="overflow-x:auto;">
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>ID</th><th>Time</th><th>Message</th>
+            <th>Fraud Prob</th><th>Status</th><th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in pending | reverse %}
+          <tr>
+            <td><code style="font-size:0.78rem;color:var(--primary);">{{ item.id }}</code></td>
+            <td style="font-size:0.75rem;color:var(--text-muted);white-space:nowrap;">
+              {{ item.timestamp[:16].replace('T',' ') if item.timestamp else '—' }}
+            </td>
+            <td>
+              <div class="msg-preview">{{ item.message }}</div>
+              <span class="expand-btn" onclick="toggleMsg(this)">▼ expand</span>
+              <div class="msg-full">{{ item.message }}</div>
+            </td>
+            <td>
+              {% set p = (item.fraud_probability * 100) | round(1) %}
+              {% if p >= 40 %}<span class="prob-badge pb-high">{{ p }}%</span>
+              {% elif p >= 35 %}<span class="prob-badge pb-med">{{ p }}%</span>
+              {% else %}<span class="prob-badge pb-low">{{ p }}%</span>{% endif %}
+            </td>
+            <td>
+              {% if item.admin_label %}
+                <span class="status-labeled">✅ {{ item.admin_label | upper }}<br>
+                  <span style="font-weight:400;font-size:0.73rem;color:var(--text-muted);">{{ item.labeled_by.split('@')[0] }}</span>
+                </span>
+              {% else %}<span class="status-unlabeled">⏳ Pending</span>{% endif %}
+            </td>
+            <td>
+              {% if not item.admin_label %}
+              <form class="label-form" method="POST" action="/admin/label">
+                <input type="hidden" name="complaint_id" value="{{ item.id }}">
+                <button class="btn-fraud" name="label" value="fraud">🚨 Fraud</button>
+                <button class="btn-legit" name="label" value="legit">✅ Legit</button>
+              </form>
+              {% else %}<span style="font-size:0.75rem;color:var(--text-muted);">Done</span>{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty">
+      <div class="empty-icon">🎉</div>
+      <div style="color:var(--text-main);">No uncertain cases yet.</div>
+      <div style="font-size:0.76rem;margin-top:5px;">UNCERTAIN predictions will appear here for manual labeling.</div>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+
+<script>
+function toggleMsg(el) {
+  const full = el.nextElementSibling;
+  const open = full.style.display === 'block';
+  full.style.display = open ? 'none' : 'block';
+  el.textContent = open ? '▼ expand' : '▲ collapse';
+}
+let logVisible = false;
+function toggleLog() {
+  const box = document.getElementById('logBox');
+  logVisible = !logVisible;
+  box.style.display = logVisible ? 'block' : 'none';
+  if (logVisible) fetchLog();
+}
+function fetchLog() {
+  fetch('/admin/retrain-status').then(r=>r.json()).then(d=>{
+    const b = document.getElementById('logBox');
+    b.textContent = d.log; b.scrollTop = b.scrollHeight;
+  }).catch(()=>{});
+}
+setInterval(()=>{ if(logVisible) fetchLog(); }, 4000);
+</script>
+{% endblock %}

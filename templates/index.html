@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+{% block title %}CyberShield — AI-Powered Fraud Detection & Cybercrime Complaint Intelligence Portal{% endblock %}
+{% block description %}CyberShield: Paste any suspicious SMS, WhatsApp message or email. Get instant AI analysis, Word Risk Heatmap, and a ready-to-submit NCRP complaint PDF.{% endblock %}
+
+{% block content %}
+<div class="container">
+
+  <!-- ── HERO ── -->
+  <section class="hero-section">
+    <div class="hero-content">
+      <span class="hero-badge">⚡ CyberShield &nbsp;·&nbsp; NCRP Aligned</span>
+      <h1>Detect <span class="highlight">Fraud.</span><br>Protect Yourself.</h1>
+      <p>CyberShield analyses any suspicious SMS, WhatsApp message, or email — delivering instant AI results, a Word Risk Heatmap, Velocity Tracking, and a ready-to-submit NCRP complaint PDF.</p>
+      <div class="cta-group">
+        <a href="#analyze-form" class="btn-primary-lg">
+          <i class="fa-solid fa-magnifying-glass"></i> Analyse Message
+        </a>
+        <a href="/model-details" class="btn-secondary">
+          <i class="fa-solid fa-chart-bar"></i> Model Details
+        </a>
+      </div>
+    </div>
+    <div class="hero-visual">
+      <div class="visual-circle"></div>
+      <div class="visual-card">
+        <div class="card-dots">
+          <div class="dot red"></div>
+          <div class="dot yellow"></div>
+          <div class="dot green"></div>
+        </div>
+        <div class="line w-90"></div>
+        <div class="line w-75"></div>
+        <div class="line w-50"></div>
+        <div class="line w-90"></div>
+        <div class="line w-75"></div>
+        <div class="status-badge-card">
+          <i class="fa-solid fa-triangle-exclamation"></i> FRAUD DETECTED — 94.7%
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── ANALYSE FORM (centered) ── -->
+  <div id="analyze-form" style="max-width:700px;margin:2rem auto 0;padding-bottom:2rem;">
+    <div class="main-panel">
+      <div class="panel-title">
+        <i class="fa-solid fa-magnifying-glass-chart"></i>
+        <h2 style="margin:0;font-size:1.1rem;">Analyse a Suspicious Message</h2>
+      </div>
+
+      {% if error %}
+      <div class="error-box"><i class="fa-solid fa-circle-exclamation"></i> {{ error }}</div>
+      {% endif %}
+
+      <div class="info-strip">
+        <i class="fa-solid fa-circle-info"></i>&nbsp; <b>Detects:</b> OTP scams · KYC fraud · Phishing links · Lottery fraud · Loan/investment scams · Job scams · Government scheme fraud. Extracts phone numbers, URLs, amounts and generates an NCRP-formatted PDF complaint.
+      </div>
+
+      <form action="/analyze" method="POST">
+        <div class="form-group">
+          <label class="form-label">Suspicious Message <span class="req">*</span></label>
+          <textarea name="message" rows="6" maxlength="800"
+            placeholder="Paste the suspicious SMS, WhatsApp, or email here…"
+            oninput="document.getElementById('cc').textContent=this.value.length"
+            required></textarea>
+          <div class="char-count"><span id="cc">0</span> / 800</div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Sender Number / Name <span class="req">*</span></label>
+            <input class="form-input" type="text" name="sender" placeholder="+91 98XXXXXXXX or VM-HDFCBK" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Your Name <span class="opt">for PDF</span></label>
+            <input class="form-input" type="text" name="complainant_name"
+              value="{{ user.name if user and user.is_authenticated else '' }}"
+              placeholder="Full name for complaint">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Contact Number <span class="opt">for PDF</span></label>
+          <input class="form-input" type="tel" name="complainant_contact"
+                 placeholder="10-digit mobile number"
+                 pattern="[0-9]{10}" minlength="10" maxlength="10"
+                 oninput="this.value=this.value.replace(/\D/g,'')"
+                 title="Enter exactly 10 digits">
+        </div>
+
+        <button type="button" class="submit-btn" id="analyse-btn"
+                onclick="handleAnalyse(event)">
+          <span><i class="fa-solid fa-bolt"></i> &nbsp;Analyse Message Now</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── FEATURES (below form) ── -->
+  <section class="features-section" style="margin-top:2.5rem;">
+    <div class="feature-card">
+      <div class="icon-box"><i class="fa-solid fa-fire-flame-curved"></i></div>
+      <h3>Word Risk Heatmap</h3>
+      <p style="color:var(--text-muted);font-size:0.9rem;line-height:1.7;">Every word coloured by its fraud coefficient weight — red is the strongest signal. Non-technical users see exactly what triggered the alert.</p>
+    </div>
+    <div class="feature-card">
+      <div class="icon-box"><i class="fa-solid fa-rotate"></i></div>
+      <h3>Velocity Tracker</h3>
+      <p style="color:var(--text-muted);font-size:0.9rem;line-height:1.7;">Cross-complaint repeat offender detection. Phone numbers and URLs flagged across submissions — CRITICAL to LOW threat levels.</p>
+    </div>
+    <div class="feature-card">
+      <div class="icon-box"><i class="fa-solid fa-file-pdf"></i></div>
+      <h3>NCRP Complaint PDF</h3>
+      <p style="color:var(--text-muted);font-size:0.9rem;line-height:1.7;">Auto-generates a filled NCRP-formatted PDF complaint. Includes evidence, velocity intelligence, and categorisation code.</p>
+    </div>
+  </section>
+
+
+
+</div>
+
+<!-- ── LOGIN REQUIRED MODAL ── -->
+{% if not (user and user.is_authenticated) %}
+<div id="login-required-modal"
+     style="display:none;position:fixed;inset:0;z-index:9999;
+            background:rgba(0,0,0,0.65);backdrop-filter:blur(8px);
+            align-items:center;justify-content:center;">
+  <div style="background:#141927;border:1px solid rgba(139,92,246,0.25);
+              border-radius:22px;padding:2.5rem 2rem;max-width:370px;width:90%;
+              box-shadow:0 30px 70px rgba(0,0,0,0.5);text-align:center;
+              animation:fadeInUp 0.25s ease;">
+    <div style="font-size:2.8rem;margin-bottom:0.75rem;">🔐</div>
+    <h3 style="font-size:1.2rem;margin-bottom:0.4rem;">Sign in to Analyse</h3>
+    <p style="color:rgba(255,255,255,0.45);font-size:0.86rem;margin-bottom:1.75rem;line-height:1.6;">
+      Your message is ready. Sign in with Google to run the AI analysis.
+    </p>
+    <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+      <button onclick="document.getElementById('login-required-modal').style.display='none'"
+              class="btn-secondary"
+              style="padding:10px 20px;cursor:pointer;border:none;font-family:inherit;font-size:0.88rem;">
+        Cancel
+      </button>
+      <a href="/login"
+         style="padding:11px 24px;border-radius:11px;
+                background:linear-gradient(135deg,#6d28d9,#4f46e5);
+                color:#fff;text-decoration:none;font-size:0.9rem;font-weight:600;
+                display:inline-flex;align-items:center;gap:8px;">
+        <i class="fa-brands fa-google"></i> Sign in with Google
+      </a>
+    </div>
+  </div>
+</div>
+<script>
+  function handleAnalyse(e) {
+    const form = document.querySelector('#analyse-btn').closest('form');
+    // trigger native HTML5 validation (pattern, minlength, required)
+    if (!form.checkValidity()) {
+      form.reportValidity();
+      return;
+    }
+    const msg = document.querySelector('textarea[name="message"]').value.trim();
+    if (!msg) return;
+    document.getElementById('login-required-modal').style.display = 'flex';
+  }
+  document.getElementById('login-required-modal').addEventListener('click', function(e){
+    if(e.target === this) this.style.display = 'none';
+  });
+</script>
+{% else %}
+<script>
+  function handleAnalyse(e) {
+    const form = document.querySelector('#analyse-btn').closest('form');
+    if (!form.checkValidity()) {
+      form.reportValidity();
+      return;
+    }
+    form.requestSubmit();
+  }
+</script>
+{% endif %}
+
+{% endblock %}
