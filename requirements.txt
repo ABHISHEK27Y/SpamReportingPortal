@@ -1,9 +1,0 @@
-pandas
-numpy
-joblib
-scikit-learn
-Flask
-Flask-SQLAlchemy
-Flask-Login
-fpdf
-gunicorn
